@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-ts_integrity_check.py v3.37
+ts_integrity_check.py v3.38
 Проверка целостности набора .ts-фрагментов: являются ли они единым видео
 с одного устройства непрерывно.
 
@@ -25,7 +25,7 @@ import re
 import math
 import numpy as np
 
-VERSION = "3.37"
+VERSION = "3.38"
 
 # History log:
 # v3.20: detect_fragments — mtime для заводских файлов пропускается
@@ -49,6 +49,10 @@ VERSION = "3.37"
 #         gps_coord_distance — math.cos (fix #4), Windows-only guards (fix #5)
 # v3.36: Исправлен счётчик объяснённых отклонений — _t_expl не накапливается
 # v3.37: Все fix #1-#15 применены, generate_history_log почищен от дубликатов
+# v3.38: _script_path() — корректная работа в frozen-режиме PyInstaller.
+#        get_script_info и add_png_footer больше не падают с FileNotFoundError
+#        при запуске собранного .exe (__file__ указывал на временную
+#        папку _MEIxxxx, где .py-файла нет).
 
 # ============================================================
 # Кодировка вывода
@@ -759,9 +763,20 @@ def get_disk_info(path):
     info['free'] = info['free_bytes']
     return info
 
+def _script_path():
+    """Путь к скрипту в обычном режиме или к .exe в собранном PyInstaller.
+
+    В frozen-режиме __file__ указывает на временную папку _MEIxxxx, где
+    .py-файла нет — использовать его нельзя. sys.executable всегда указывает
+    на реальный .exe.
+    """
+    if getattr(sys, 'frozen', False):
+        return sys.executable
+    return os.path.abspath(__file__)
+
 def get_script_info():
     info = {}
-    script_path = os.path.abspath(__file__)
+    script_path = _script_path()
     info['name'] = os.path.basename(script_path)
     info['path'] = script_path
     info['size'] = os.path.getsize(script_path)
@@ -777,7 +792,7 @@ def get_script_info():
 def add_png_footer(fig, y_pos=0.01):
     """Добавляет штамп в левый нижний угол: версия, MD5, дата скрипта, дата PNG."""
     try:
-        script_path = os.path.abspath(__file__)
+        script_path = _script_path()
         script_mtime = datetime.datetime.fromtimestamp(os.path.getmtime(script_path))
         script_md5 = md5_file(script_path)[:8]
     except Exception:
@@ -4324,6 +4339,11 @@ v3.37
   - Убран фантомный «v3.26 (текущая версия)» с дубликатами v3.22/v3.25
   - Убраны дубликаты v3.32, v3.33, v3.34
 
+v3.38
+  - _script_path(): корректная работа в frozen-режиме PyInstaller.
+    get_script_info и add_png_footer больше не падают с FileNotFoundError
+    при запуске собранного .exe (__file__ указывал на временную папку
+    _MEIxxxx, где .py-файла нет).
 """
     try:
         with open(output_path, 'w', encoding='utf-8') as f:
